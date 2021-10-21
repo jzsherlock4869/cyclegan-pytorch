@@ -54,17 +54,18 @@ class CycleGANDataset(Dataset):
     def __len__(self):
         return min(self.lenA, self.lenB)
 
-def get_photo2monet_dataloader():
-    root_dir = "../dataset/"
+def get_photo2monet_dataloader(root_dir="../dataset", batch_size=4):
     imgA_sub, imgB_sub = "photo_jpg", "monet_jpg"
     postfix_set=["jpg"]
     train_dataset = CycleGANDataset(root_dir, imgA_sub, imgB_sub, postfix_set)
-    train_dataloader = DataLoader(train_dataset, batch_size=1, shuffle=False)
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
     return train_dataloader
 
 if __name__ == "__main__":
 
-    train_dataloader = get_photo2monet_dataloader()
+    # test dataloader works normally
+    data_path = r"E:\datasets\kaggle\20211021_im_something_a_painter"
+    train_dataloader = get_photo2monet_dataloader(data_path)
     for idx, i in enumerate(train_dataloader):
         if idx > 5:
             break
