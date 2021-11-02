@@ -91,11 +91,3 @@ class Simple_decoder(nn.Module):
     def forward(self, x):
         out = self.decoder(x)
         return out
-
-
-class VGG_classifier(nn.Module):
-    """
-    VGG for discriminator
-    """
-    pass
-

@@ -54,12 +54,19 @@ class CycleGANDataset(Dataset):
     def __len__(self):
         return min(self.lenA, self.lenB)
 
-def get_photo2monet_dataloader(root_dir="../dataset", batch_size=4):
+def get_photo2monet_train_dataloader(root_dir="../dataset", batch_size=4):
     imgA_sub, imgB_sub = "photo_jpg", "monet_jpg"
     postfix_set=["jpg"]
     train_dataset = CycleGANDataset(root_dir, imgA_sub, imgB_sub, postfix_set)
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
     return train_dataloader
+
+def get_photo2monet_eval_dataloader(root_dir="../dataset"):
+    imgA_sub, imgB_sub = "photo_jpg", "monet_jpg"
+    postfix_set=["jpg"]
+    eval_dataset = CycleGANDataset(root_dir, imgA_sub, imgB_sub, postfix_set)
+    eval_dataloader = DataLoader(eval_dataset, batch_size=1, shuffle=False)
+    return eval_dataloader
 
 if __name__ == "__main__":
 
