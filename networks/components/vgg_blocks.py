@@ -22,11 +22,12 @@ model_urls = {
 
 class VGG(nn.Module):
 
-    def __init__(self, features, num_classes=1000):
+    def __init__(self, features, num_classes=2, img_size=(256, 256)):
         super(VGG, self).__init__()
         self.features = features
+        self.final_size = img_size[0] * img_size[1] // (32 * 32)
         self.classifier = nn.Sequential(
-            nn.Linear(512 * 7 * 7, 4096),
+            nn.Linear(512 * self.final_size, 4096),
             nn.ReLU(inplace=True),
             nn.Dropout(),
             nn.Linear(4096, 4096),
@@ -115,6 +116,8 @@ def vgg16(pretrained=False, model_root=None, **kwargs):
     model = VGG(make_layers(cfg['D']), **kwargs)
     if pretrained:
         model.load_state_dict(model_zoo.load_url(model_urls['vgg16'], model_root))
+    print("VGG 16 arch")
+    print(model)
     return model
 
 

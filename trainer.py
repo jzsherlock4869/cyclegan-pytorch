@@ -17,29 +17,31 @@ def train_epoch(G_ab, G_ba, D_a, D_b, dataloader, optimizers, epoch_idx):
     G_ab.train(), G_ba.train(), D_a.train(), D_b.train()
     identity_loss = nn.L1Loss()
     cycle_loss = nn.L1Loss()
-    gan_loss = nn.CrossEntropyLoss()
+    gan_loss = nn.BCEWithLogitsLoss()
     a_id, a_cyc, a_gan = 0.5, 0.5, 0.2
 
     epoch_loss = 0
     for iter_idx, batch in enumerate(dataloader):
         for k in optimizers:
-            optimizers[k].zeros_grad()
+            optimizers[k].zero_grad()
         real_A, real_B = batch["imgA"], batch["imgB"]
+        real_A, real_B = real_A.type(torch.cuda.FloatTensor), real_B.type(torch.cuda.FloatTensor)
         fake_B, fake_A = G_ab(real_A), G_ba(real_B)
         recon_A, recon_B = G_ba(fake_B), G_ab(fake_A)
         p_real_A, p_fake_A = D_a(real_A), D_a(fake_A)
         p_real_B, p_fake_B = D_b(real_B), D_b(fake_B)
+
         l_cycle = cycle_loss(recon_A, real_A) + cycle_loss(recon_B, real_B)
         l_identity = identity_loss(fake_B, real_A) + identity_loss(fake_A, real_B)
         l_gan = gan_loss(p_real_A, torch.ones_like(p_real_A)) + gan_loss(p_real_B, torch.ones_like(p_real_B)) \
-            + gan_loss(p_fake_A, torch.zeros_like(p_fake_A)) + gan_loss(p_fake_B, torch.zeros_lkie(p_fake_B))
+            + gan_loss(p_fake_A, torch.zeros_like(p_fake_A)) + gan_loss(p_fake_B, torch.zeros_like(p_fake_B))
         loss_tot = a_id * l_identity + a_cyc * l_cycle + a_gan * l_gan
         loss_tot.backward()
         for k in optimizers:
             optimizers[k].step()
         epoch_loss += loss_tot.item()
         print('Epoch [{}] Iter [{}/{}] || tot loss : {:.4f} (identity {:.4f}, cycle {:.4f}, gan {:.4f}) || timestamp {}'\
-            .format(epoch_idx, iter_idx, len(dataloader), l_identity.item(), l_cycle.item(), l_gan.item(), get_now()))
+            .format(epoch_idx, iter_idx, len(dataloader), loss_tot.item(), l_identity.item(), l_cycle.item(), l_gan.item(), get_now()))
     
     return epoch_loss / len(dataloader)
         
@@ -63,11 +65,12 @@ def main():
         "D_b": 1e-4
     }
 
-    data_path = r"E:\datasets\kaggle\20211021_im_something_a_painter"
+    # data_path = r"E:\datasets\kaggle\20211021_im_something_a_painter"
+    data_path = "../dataset/"
     eval_interval = 20
     save_interval = 20
     batch_size = 4
-    use_gpu = [0,1,2,3]
+    use_gpu = [0]
     ##########################
 
     # define networks
@@ -76,12 +79,14 @@ def main():
     D_a = VGG_Discriminator() # check if in domain A
     D_b = VGG_Discriminator() # check if in domain B
 
-    if use_gpu is not None and len(use_gpu) > 1:
+    if use_gpu is not None:
         G_ab, G_ba, D_a, D_b = G_ab.cuda(), G_ba.cuda(), D_a.cuda(), D_b.cuda()
-        G_ab = nn.Parallel(G_ab)
-        G_ba = nn.Parallel(G_ba)
-        D_a = nn.Parallel(D_a)
-        D_b = nn.Parallel(D_b)
+
+    if use_gpu is not None and len(use_gpu) > 1:
+        G_ab = nn.DataParallel(G_ab)
+        G_ba = nn.DataParallel(G_ba)
+        D_a = nn.DataParallel(D_a)
+        D_b = nn.DataParallel(D_b)
 
     # get optimizers
     optimizer_G_ab = optim.Adam(G_ab.parameters(), lr_set["G_ab"])
