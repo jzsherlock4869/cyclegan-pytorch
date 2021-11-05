@@ -4,11 +4,14 @@ import torch.optim as optim
 from torch.optim.lr_scheduler import MultiStepLR, ExponentialLR
 import torch.backends.cudnn as cudnn
 
+import os
+
 from datetime import datetime
 from dataloader import get_photo2monet_train_dataloader, get_photo2monet_eval_dataloader
-from networks.generators import Res_Generator
+from networks.generators import Res_Generator, DnCNN_Generator
 from networks.discriminators import VGG_Discriminator
-
+from utils import save_tensor_as_imgs
+    
 def get_now():
     return datetime.now().strftime("%Y-%m-%d %H:%M")
 
@@ -18,7 +21,7 @@ def train_epoch(G_ab, G_ba, D_a, D_b, dataloader, optimizers, epoch_idx):
     identity_loss = nn.L1Loss()
     cycle_loss = nn.L1Loss()
     gan_loss = nn.BCEWithLogitsLoss()
-    a_id, a_cyc, a_gan = 0.5, 0.5, 0.2
+    a_id, a_cyc, a_gan = 5.0, 2.0, 1.0
 
     epoch_loss = 0
     for iter_idx, batch in enumerate(dataloader):
@@ -43,15 +46,33 @@ def train_epoch(G_ab, G_ba, D_a, D_b, dataloader, optimizers, epoch_idx):
         print('Epoch [{}] Iter [{}/{}] || tot loss : {:.4f} (identity {:.4f}, cycle {:.4f}, gan {:.4f}) || timestamp {}'\
             .format(epoch_idx, iter_idx, len(dataloader), loss_tot.item(), l_identity.item(), l_cycle.item(), l_gan.item(), get_now()))
     
-    return epoch_loss / len(dataloader)
-        
-def eval_epoch(G_ab, G_ba, D_a, D_b, dataloader, epoch_idx):
-    G_ab.eval(), G_ba.eval(), D_a.eval(), D_b.eval()
+    return epoch_loss / len(dataloader), optimizers
+
+def eval_epoch(G_ab, G_ba, dataloader, epoch_idx, num_imgs, save_dir):
+    print('==== Start eval in Epoch {} ===='.format(epoch_idx))
+    G_ab.eval(), G_ba.eval()
+    for iter_idx, batch in enumerate(dataloader):
+        show_ls = []
+        if iter_idx == num_imgs:
+            break
+        print(' >>> eval image no. {}'.format(iter_idx))
+        real_A, real_B = batch["imgA"], batch["imgB"]
+        real_A, real_B = real_A.type(torch.cuda.FloatTensor), real_B.type(torch.cuda.FloatTensor)
+        fake_B, fake_A = G_ab(real_A), G_ba(real_B)
+        recon_A, recon_B = G_ba(fake_B), G_ab(fake_A)
+        show_ls.append([real_A, fake_B, recon_A])
+        show_ls.append([real_B, fake_A, recon_B])
+        os.makedirs(os.path.join(save_dir, 'epoch_{}'.format(epoch_idx)), exist_ok=True)
+        save_tensor_as_imgs(show_ls, save_fname=os.path.join(save_dir, \
+                                        'epoch_{}'.format(epoch_idx), \
+                                        'test_epoch{}_batch_{}.png'.format(epoch_idx, iter_idx)))
+
     return
 
 def save_epoch(G_ab, G_ba, D_a, D_b, epoch_idx):
     
     return
+
 
 def main():
 
@@ -59,23 +80,28 @@ def main():
     some settings
     """
     lr_set = {
-        "G_ab": 1e-3,
-        "G_ba": 1e-3,
+        "G_ab": 1e-4,
+        "G_ba": 1e-4,
         "D_a": 1e-4,
         "D_b": 1e-4
     }
 
     # data_path = r"E:\datasets\kaggle\20211021_im_something_a_painter"
     data_path = "../dataset/"
-    eval_interval = 20
+    eval_interval = 2
     save_interval = 20
-    batch_size = 4
+    batch_size = 8
     use_gpu = [0]
+    eval_num_imgs = 10
+    eval_save_dir = './eval_output'
+    num_epoch = 5000
     ##########################
 
     # define networks
-    G_ab = Res_Generator() # generate B domain
-    G_ba = Res_Generator() # generate A domain
+    # G_ab = Res_Generator() # generate B domain
+    # G_ba = Res_Generator() # generate A domain
+    G_ab = DnCNN_Generator()
+    G_ba = DnCNN_Generator()
     D_a = VGG_Discriminator() # check if in domain A
     D_b = VGG_Discriminator() # check if in domain B
 
@@ -101,16 +127,19 @@ def main():
         "D_b": optimizer_D_b
     }
 
+    # lr_sch_G_ab = optim.lr_scheduler.ExponentialLR(optimizers["G_ab"])
+
+
     train_dataloader = get_photo2monet_train_dataloader(data_path, batch_size=batch_size)
 
-    num_epoch = 50
     for epoch_idx in range(1, num_epoch + 1):
-        epoch_loss = train_epoch(G_ab, G_ba, D_a, D_b, train_dataloader, optimizers, epoch_idx)
+
+        epoch_loss, optimizers = train_epoch(G_ab, G_ba, D_a, D_b, train_dataloader, optimizers, epoch_idx)
         print(" ===== Epoch {} completed, avg. tot. loss {:.4f}".format(epoch_idx, epoch_loss))
         
         if epoch_idx % eval_interval == 0:
-            eval_dataloader = get_photo2monet_eval_dataloader(root_dir="../dataset", batch_size=1)
-            eval_epoch(G_ab, G_ba, D_a, D_b, eval_dataloader, epoch_idx)
+            eval_dataloader = get_photo2monet_eval_dataloader(root_dir="../dataset")
+            eval_epoch(G_ab, G_ba, eval_dataloader, epoch_idx, eval_num_imgs, eval_save_dir)
 
         if epoch_idx % save_interval == 0:
             save_epoch(G_ab, G_ba, D_a, D_b, epoch_idx)

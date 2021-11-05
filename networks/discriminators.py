@@ -8,7 +8,7 @@ class VGG_Discriminator(nn.Module):
     'vgg11', 'vgg11_bn', 'vgg13', 'vgg13_bn', 'vgg16', 'vgg16_bn',
     'vgg19_bn', 'vgg19'
     """
-    def __init__(self, mode='vgg16'):
+    def __init__(self, mode='vgg11_bn'):
         super(VGG_Discriminator, self).__init__()
         self.vgg_model = None
         if mode == 'vgg11':

@@ -65,7 +65,7 @@ class Simple_Upsample_Block(nn.Module):
     """
     def __init__(self, in_chs, out_chs):
         super(Simple_Upsample_Block, self).__init__()
-        layers = [nn.Upsample(scale_factor=2), 
+        layers = [nn.ConvTranspose2d(in_chs, in_chs, 3, stride=2, padding=1, output_padding=1),
                   nn.Conv2d(in_chs, out_chs, 3, stride=1, padding=1),
                   nn.BatchNorm2d(out_chs),
                   nn.ReLU(inplace=True)
@@ -89,8 +89,11 @@ class Simple_decoder(nn.Module):
         for i in range(up_times):
             layers.append(Simple_Upsample_Block(in_chs, in_chs // 2))
             in_chs = in_chs // 2
+        layers.append(nn.Conv2d(in_chs, in_chs, kernel_size=3, stride=1, padding='same'))
+        layers.append(nn.Conv2d(in_chs, in_chs, kernel_size=3, stride=1, padding='same'))
         layers.append(nn.Conv2d(in_chs, out_chs, kernel_size=3, stride=1, padding='same'))
         self.decoder = nn.Sequential(*layers)
+        print(self.decoder)
     
     def forward(self, x):
         out = self.decoder(x)

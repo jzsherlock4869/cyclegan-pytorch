@@ -27,6 +27,10 @@ class CycleGANDataset(Dataset):
             A.HorizontalFlip(p=0.5),
             A.Normalize(p=1.0)],
             additional_targets={"image_2": 'image'})
+        # self.transform = A.Compose([
+        #     A.Resize(256, 256, cv2.INTER_CUBIC, p=1.0),
+        #     A.HorizontalFlip(p=0.5)],
+        #     additional_targets={"image_2": 'image'})
         print("Dataset loaded from {} ...".format(root_dir))
         print("Domain A (len={}): {}, Domain B (len={}): {}"\
             .format(self.lenA, imgA_sub, self.lenB, imgB_sub))
@@ -38,7 +42,7 @@ class CycleGANDataset(Dataset):
             assert AorB == "B"
             dir_name = self.imgB_path
         img = cv2.imread(osp.join(dir_name, image_id))
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         return img
 
     def __getitem__(self, idx):
@@ -46,6 +50,8 @@ class CycleGANDataset(Dataset):
         idB = random.randint(0, self.lenB - 1)
         imgA = self.read_image("A", self.imgA_ids[idA])
         imgB = self.read_image("B", self.imgB_ids[idB])
+        # imgA = self.read_image("A", self.imgA_ids[idA]) / 255.0
+        # imgB = self.read_image("B", self.imgB_ids[idB]) / 255.0
         # imgA = self.transform(imgA)
         transformed = self.transform(image=imgA, image_2=imgB)
         imgA, imgB = transformed["image"], transformed["image_2"]

@@ -35,6 +35,11 @@ class VGG(nn.Module):
             nn.Dropout(),
             nn.Linear(4096, num_classes),
         )
+        self.patch_classifier = nn.Sequential(
+            nn.Conv2d(512, 512, kernel_size=3, padding=1),
+            nn.Conv2d(512, 512, kernel_size=3, padding=1),
+            nn.Conv2d(512, 1, kernel_size=3, padding=1)
+        )
         self._initialize_weights()
 
     def forward(self, x):
