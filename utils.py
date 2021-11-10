@@ -26,10 +26,6 @@ def save_tensor_as_imgs(tensor_list, save_fname):
     cv2.imwrite(save_fname, all_im)
 
 
-
-
-
-
 if __name__ == "__main__":
     from dataloader import get_photo2monet_eval_dataloader
     eval_loader = get_photo2monet_eval_dataloader('../dataset')

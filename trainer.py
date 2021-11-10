@@ -3,12 +3,13 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.optim.lr_scheduler import MultiStepLR, ExponentialLR
 import torch.backends.cudnn as cudnn
+torch.autograd.set_detect_anomaly(True)
 
 import os
 
 from datetime import datetime
 from dataloader import get_photo2monet_train_dataloader, get_photo2monet_eval_dataloader
-from networks.generators import Res_Generator, DnCNN_Generator
+from networks.generators import Symm_ResDeconv_Generator, DnCNN_Generator
 from networks.discriminators import VGG_Discriminator
 from utils import save_tensor_as_imgs
     
@@ -21,7 +22,9 @@ def train_epoch(G_ab, G_ba, D_a, D_b, dataloader, optimizers, epoch_idx):
     identity_loss = nn.L1Loss()
     cycle_loss = nn.L1Loss()
     gan_loss = nn.BCEWithLogitsLoss()
-    a_id, a_cyc, a_gan = 5.0, 2.0, 1.0
+    # gan_loss = nn.MSELoss()
+    # gan_loss = nn.BCELoss()
+    a_id, a_cyc, a_gan = 1.0, 5.0, 2.0
 
     epoch_loss = 0
     for iter_idx, batch in enumerate(dataloader):
@@ -38,24 +41,30 @@ def train_epoch(G_ab, G_ba, D_a, D_b, dataloader, optimizers, epoch_idx):
         l_identity = identity_loss(fake_B, real_A) + identity_loss(fake_A, real_B)
         l_gan = gan_loss(p_real_A, torch.ones_like(p_real_A)) + gan_loss(p_real_B, torch.ones_like(p_real_B)) \
             + gan_loss(p_fake_A, torch.zeros_like(p_fake_A)) + gan_loss(p_fake_B, torch.zeros_like(p_fake_B))
-        loss_tot = a_id * l_identity + a_cyc * l_cycle + a_gan * l_gan
+        l_gan = l_gan / 64.0
+        # loss_tot = a_id * l_identity + a_cyc * l_cycle + a_gan * l_gan
+        loss_tot = l_identity
+        # loss_tot.backward(retain_graph=True)
         loss_tot.backward()
         for k in optimizers:
             optimizers[k].step()
-        epoch_loss += loss_tot.item()
+        epoch_loss += loss_tot.detach().item()
         print('Epoch [{}] Iter [{}/{}] || tot loss : {:.4f} (identity {:.4f}, cycle {:.4f}, gan {:.4f}) || timestamp {}'\
             .format(epoch_idx, iter_idx, len(dataloader), loss_tot.item(), l_identity.item(), l_cycle.item(), l_gan.item(), get_now()))
-    
+        del loss_tot
+        del fake_A, fake_B, recon_A, recon_B
+
     return epoch_loss / len(dataloader), optimizers
 
-def eval_epoch(G_ab, G_ba, dataloader, epoch_idx, num_imgs, save_dir):
+def eval_epoch(G_ab, G_ba, dataloader, epoch_idx, num_imgs, save_dir, verbose=True, log_interval=10):
     print('==== Start eval in Epoch {} ===='.format(epoch_idx))
     G_ab.eval(), G_ba.eval()
     for iter_idx, batch in enumerate(dataloader):
         show_ls = []
         if iter_idx == num_imgs:
             break
-        print(' >>> eval image no. {}'.format(iter_idx))
+        if verbose and iter_idx % log_interval == 0:
+            print(' >>> eval image no. {}'.format(iter_idx))
         real_A, real_B = batch["imgA"], batch["imgB"]
         real_A, real_B = real_A.type(torch.cuda.FloatTensor), real_B.type(torch.cuda.FloatTensor)
         fake_B, fake_A = G_ab(real_A), G_ba(real_B)
@@ -90,18 +99,18 @@ def main():
     data_path = "../dataset/"
     eval_interval = 2
     save_interval = 20
-    batch_size = 8
+    batch_size = 16
     use_gpu = [0]
-    eval_num_imgs = 10
+    eval_num_imgs = 100
     eval_save_dir = './eval_output'
     num_epoch = 5000
     ##########################
 
     # define networks
-    # G_ab = Res_Generator() # generate B domain
-    # G_ba = Res_Generator() # generate A domain
-    G_ab = DnCNN_Generator()
-    G_ba = DnCNN_Generator()
+    G_ab = Symm_ResDeconv_Generator() # generate B domain
+    G_ba = Symm_ResDeconv_Generator() # generate A domain
+    # G_ab = DnCNN_Generator()
+    # G_ba = DnCNN_Generator()
     D_a = VGG_Discriminator() # check if in domain A
     D_b = VGG_Discriminator() # check if in domain B
 
@@ -128,7 +137,6 @@ def main():
     }
 
     # lr_sch_G_ab = optim.lr_scheduler.ExponentialLR(optimizers["G_ab"])
-
 
     train_dataloader = get_photo2monet_train_dataloader(data_path, batch_size=batch_size)
 

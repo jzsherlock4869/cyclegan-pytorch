@@ -2,18 +2,32 @@ import torch.nn.init as init
 from .components.blocks import *
 
 
-class Res_Generator(nn.Module):
+class Symm_ResDeconv_Generator(nn.Module):
     """
-    generator using resnet-like encoder and simple decoder
+    generator using resnet-like encoder and simple deconv decoder
     """
-    def __init__(self, arch_code=[3, 16, 'p', 32, 32, 'p', 64, 64, 64, 64]):
-        super(Res_Generator, self).__init__()
-        self.encoder = ResNet_encoder(arch_code)
-        self.decoder = Simple_decoder(arch_code[-1], arch_code[0], self.encoder.down_times)
+    def __init__(self, arch_code=[3, 16, 'p', 32, 'p', 64], skip_connect=[0, 1]):
+        super(Symm_ResDeconv_Generator, self).__init__()
+        self.skip_connect = skip_connect
+        stage_out_chs = [int(i.strip().split(' ')[-1]) for i in ' '.join(map(str, arch_code)).split('p')]
+        self.skip_connect_chs = [stage_out_chs[idx] for idx in skip_connect]
+        enc_arch_code = arch_code
+        dec_arch_code = ['u' if i == 'p' else i for i in arch_code[::-1]]
+        self.encoder = ResNetEncoder(enc_arch_code)
+        self.n_stage = self.encoder.n_stage
+        self.skip_connect_end = [self.n_stage - s_id for s_id in skip_connect]
+        skip_chs_dic = {self.skip_connect_end[i] : self.skip_connect_chs[i] for i in range(len(skip_connect))}
+        self.decoder = DeconvDecoder(dec_arch_code, skip_chs_dic)
     
     def forward(self, x):
-        encode = self.encoder(x)
-        out = self.decoder(encode)
+        encode, enc_trace = self.encoder(x)
+        #inter_feat = [None for _ in range(self.n_stage + 1)]
+        # if self.skip_connect is not None:
+        #     for s_id in self.skip_connect:
+        #         inter_feat[self.n_stage - s_id] = enc_trace[s_id]
+        # out = self.decoder(encode, inter_feat)
+        enc_trace = [enc_trace[i] for i in self.skip_connect]
+        out = self.decoder(encode, enc_trace)
         return out
 
 

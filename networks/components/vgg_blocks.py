@@ -44,8 +44,8 @@ class VGG(nn.Module):
 
     def forward(self, x):
         x = self.features(x)
-        x = x.view(x.size(0), -1)
-        x = self.classifier(x)
+        # x = x.view(x.size(0), -1)
+        x = self.patch_classifier(x)
         return x
 
     def _initialize_weights(self):
