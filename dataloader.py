@@ -78,7 +78,6 @@ def get_photo2monet_eval_dataloader(root_dir="../dataset"):
 if __name__ == "__main__":
 
     # test dataloader works normally
-    #data_path = r"E:\datasets\kaggle\20211021_im_something_a_painter"
     data_path = "../dataset/"
     train_dataloader = get_photo2monet_train_dataloader(data_path)
     for idx, i in enumerate(train_dataloader):

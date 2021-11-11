@@ -6,7 +6,7 @@ class Symm_ResDeconv_Generator(nn.Module):
     """
     generator using resnet-like encoder and simple deconv decoder
     """
-    def __init__(self, arch_code=[3, 16, 'p', 32, 'p', 64], skip_connect=[0, 1]):
+    def __init__(self, arch_code=[3, 16, 16, 'p', 32, 'p', 64, 64, 'p', 128], skip_connect=[0, 1, 2]):
         super(Symm_ResDeconv_Generator, self).__init__()
         self.skip_connect = skip_connect
         stage_out_chs = [int(i.strip().split(' ')[-1]) for i in ' '.join(map(str, arch_code)).split('p')]
@@ -21,11 +21,7 @@ class Symm_ResDeconv_Generator(nn.Module):
     
     def forward(self, x):
         encode, enc_trace = self.encoder(x)
-        #inter_feat = [None for _ in range(self.n_stage + 1)]
-        # if self.skip_connect is not None:
-        #     for s_id in self.skip_connect:
-        #         inter_feat[self.n_stage - s_id] = enc_trace[s_id]
-        # out = self.decoder(encode, inter_feat)
+        # bind the selected skip connections
         enc_trace = [enc_trace[i] for i in self.skip_connect]
         out = self.decoder(encode, enc_trace)
         return out

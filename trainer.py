@@ -24,7 +24,7 @@ def train_epoch(G_ab, G_ba, D_a, D_b, dataloader, optimizers, epoch_idx):
     gan_loss = nn.BCEWithLogitsLoss()
     # gan_loss = nn.MSELoss()
     # gan_loss = nn.BCELoss()
-    a_id, a_cyc, a_gan = 1.0, 5.0, 2.0
+    a_id, a_cyc, a_gan = 1.0, 5.0, 50.0
 
     epoch_loss = 0
     for iter_idx, batch in enumerate(dataloader):
@@ -42,8 +42,8 @@ def train_epoch(G_ab, G_ba, D_a, D_b, dataloader, optimizers, epoch_idx):
         l_gan = gan_loss(p_real_A, torch.ones_like(p_real_A)) + gan_loss(p_real_B, torch.ones_like(p_real_B)) \
             + gan_loss(p_fake_A, torch.zeros_like(p_fake_A)) + gan_loss(p_fake_B, torch.zeros_like(p_fake_B))
         l_gan = l_gan / 64.0
-        # loss_tot = a_id * l_identity + a_cyc * l_cycle + a_gan * l_gan
-        loss_tot = l_identity
+        loss_tot = a_id * l_identity + a_cyc * l_cycle + a_gan * l_gan
+        # loss_tot = l_identity
         # loss_tot.backward(retain_graph=True)
         loss_tot.backward()
         for k in optimizers:
@@ -91,8 +91,8 @@ def main():
     lr_set = {
         "G_ab": 1e-4,
         "G_ba": 1e-4,
-        "D_a": 1e-4,
-        "D_b": 1e-4
+        "D_a": 1e-6,
+        "D_b": 1e-6
     }
 
     # data_path = r"E:\datasets\kaggle\20211021_im_something_a_painter"
@@ -151,7 +151,7 @@ def main():
 
         if epoch_idx % save_interval == 0:
             save_epoch(G_ab, G_ba, D_a, D_b, epoch_idx)
-    
+
 
 if __name__ == "__main__":
     main()

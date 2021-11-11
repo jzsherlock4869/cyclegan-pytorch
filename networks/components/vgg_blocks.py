@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 import torch.utils.model_zoo as model_zoo
 import math
@@ -92,7 +93,12 @@ def vgg11(pretrained=False, model_root=None, **kwargs):
     """VGG 11-layer model (configuration "A")"""
     model = VGG(make_layers(cfg['A']), **kwargs)
     if pretrained:
-        model.load_state_dict(model_zoo.load_url(model_urls['vgg11'], model_root))
+        # model.load_state_dict(model_zoo.load_url(model_urls['vgg11'], model_root))
+        model_dict = model.state_dict()
+        pretrained_dict = torch.load('./pretrained/vgg11-bbd30ac9.pth')
+        new_state_dict = {k: v for k, v in pretrained_dict.items() if (k in model_dict and 'classifier' not in k)}
+        model_dict.update(new_state_dict)
+        model.load_state_dict(model_dict)
     return model
 
 
