@@ -9,22 +9,56 @@ import os
 
 from datetime import datetime
 from dataloader import get_photo2monet_train_dataloader, get_photo2monet_eval_dataloader
+from dataloader import get_horse2zebra_train_dataloader, get_horse2zebra_eval_dataloader
 from networks.generators import Symm_ResDeconv_Generator, DnCNN_Generator
 from networks.discriminators import VGG_Discriminator
 from utils import save_tensor_as_imgs
-    
+
 def get_now():
     return datetime.now().strftime("%Y-%m-%d %H:%M")
+
+
+def pretrain_epoch(D_a, D_b, dataloader, optimizers, epoch_idx):
+
+    D_a.train(), D_b.train()
+    gan_loss = nn.BCEWithLogitsLoss()
+    
+    epoch_loss = 0
+    for iter_idx, batch in enumerate(dataloader):
+        for k in optimizers:
+            if "D" in k:
+                optimizers[k].zero_grad()
+        real_A, real_B = batch["imgA"], batch["imgB"]
+        real_A, real_B = real_A.type(torch.cuda.FloatTensor), real_B.type(torch.cuda.FloatTensor)
+        p_real_A, p_fake_A = D_a(real_A), D_a(real_B)
+        p_real_B, p_fake_B = D_b(real_B), D_b(real_A)
+
+        l_gan = gan_loss(p_real_A, torch.ones_like(p_real_A)) + 1.0 * gan_loss(p_real_B, torch.ones_like(p_real_B)) \
+            + gan_loss(p_fake_A, torch.zeros_like(p_fake_A)) + 1.0 * gan_loss(p_fake_B, torch.zeros_like(p_fake_B))
+        loss_tot = l_gan / 64.0
+        # loss_tot = l_identity
+        # loss_tot.backward(retain_graph=True)
+        loss_tot.backward()
+        for k in optimizers:
+            if "D" in k:
+                optimizers[k].step()
+        epoch_loss += loss_tot.detach().item()
+        print('Pretrain Epoch [{}] Iter [{}/{}] || tot loss : {:.4f} || timestamp {}'\
+            .format(epoch_idx, iter_idx, len(dataloader), loss_tot.item(), get_now()))
+        del loss_tot
+
+    return epoch_loss / len(dataloader), optimizers
+
 
 def train_epoch(G_ab, G_ba, D_a, D_b, dataloader, optimizers, epoch_idx):
 
     G_ab.train(), G_ba.train(), D_a.train(), D_b.train()
-    identity_loss = nn.L1Loss()
-    cycle_loss = nn.L1Loss()
+    identity_loss = nn.MSELoss()
+    cycle_loss = nn.MSELoss()
     gan_loss = nn.BCEWithLogitsLoss()
-    # gan_loss = nn.MSELoss()
+    # gan_loss = nn.L1Loss()
     # gan_loss = nn.BCELoss()
-    a_id, a_cyc, a_gan = 1.0, 5.0, 50.0
+    a_id, a_cyc, a_gan = 1.0, 5.0, 1.0
 
     epoch_loss = 0
     for iter_idx, batch in enumerate(dataloader):
@@ -39,8 +73,8 @@ def train_epoch(G_ab, G_ba, D_a, D_b, dataloader, optimizers, epoch_idx):
 
         l_cycle = cycle_loss(recon_A, real_A) + cycle_loss(recon_B, real_B)
         l_identity = identity_loss(fake_B, real_A) + identity_loss(fake_A, real_B)
-        l_gan = gan_loss(p_real_A, torch.ones_like(p_real_A)) + gan_loss(p_real_B, torch.ones_like(p_real_B)) \
-            + gan_loss(p_fake_A, torch.zeros_like(p_fake_A)) + gan_loss(p_fake_B, torch.zeros_like(p_fake_B))
+        l_gan = gan_loss(p_real_A, torch.ones_like(p_real_A)) + 1.0 * gan_loss(p_real_B, torch.ones_like(p_real_B)) \
+            + gan_loss(p_fake_A, torch.zeros_like(p_fake_A)) + 1.0 * gan_loss(p_fake_B, torch.zeros_like(p_fake_B))
         l_gan = l_gan / 64.0
         loss_tot = a_id * l_identity + a_cyc * l_cycle + a_gan * l_gan
         # loss_tot = l_identity
@@ -89,17 +123,17 @@ def main():
     some settings
     """
     lr_set = {
-        "G_ab": 1e-4,
-        "G_ba": 1e-4,
-        "D_a": 1e-6,
-        "D_b": 1e-6
+        "G_ab": 5e-4,
+        "G_ba": 5e-4,
+        "D_a": 1e-4,
+        "D_b": 1e-4
     }
 
-    # data_path = r"E:\datasets\kaggle\20211021_im_something_a_painter"
-    data_path = "../dataset/"
+    data_path = "../datasets/monet_dataset"
+    # data_path = "../datasets/zebra_dataset"
     eval_interval = 2
     save_interval = 20
-    batch_size = 16
+    batch_size = 8
     use_gpu = [0]
     eval_num_imgs = 100
     eval_save_dir = './eval_output'
@@ -136,22 +170,36 @@ def main():
         "D_b": optimizer_D_b
     }
 
-    # lr_sch_G_ab = optim.lr_scheduler.ExponentialLR(optimizers["G_ab"])
+    lr_sch_G_ab = optim.lr_scheduler.ExponentialLR(optimizers["G_ab"], gamma=0.999)
+    lr_sch_G_ba = optim.lr_scheduler.ExponentialLR(optimizers["G_ba"], gamma=0.999)
+    lr_sch_D_a = optim.lr_scheduler.ExponentialLR(optimizers["D_a"], gamma=0.99)
+    lr_sch_D_b = optim.lr_scheduler.ExponentialLR(optimizers["D_b"], gamma=0.99)
+
 
     train_dataloader = get_photo2monet_train_dataloader(data_path, batch_size=batch_size)
+    # train_dataloader = get_horse2zebra_train_dataloader(data_path, batch_size=batch_size)
 
+    # for pre_epoch_idx in range(20):
+    #     epoch_loss, optimizers = pretrain_epoch(D_a, D_b, train_dataloader, optimizers, pre_epoch_idx)
+
+    print("Pretrain Discriminator finished, start train cycle GAN")
     for epoch_idx in range(1, num_epoch + 1):
-
+        # print(optimizers["G_ab"].param_groups[0]['lr'])
         epoch_loss, optimizers = train_epoch(G_ab, G_ba, D_a, D_b, train_dataloader, optimizers, epoch_idx)
         print(" ===== Epoch {} completed, avg. tot. loss {:.4f}".format(epoch_idx, epoch_loss))
         
         if epoch_idx % eval_interval == 0:
-            eval_dataloader = get_photo2monet_eval_dataloader(root_dir="../dataset")
+            eval_dataloader = get_photo2monet_eval_dataloader(root_dir=data_path)
+            # eval_dataloader = get_horse2zebra_eval_dataloader(root_dir=data_path)
             eval_epoch(G_ab, G_ba, eval_dataloader, epoch_idx, eval_num_imgs, eval_save_dir)
 
         if epoch_idx % save_interval == 0:
             save_epoch(G_ab, G_ba, D_a, D_b, epoch_idx)
 
+        lr_sch_G_ab.step()
+        lr_sch_G_ba.step()
+        lr_sch_D_a.step()
+        lr_sch_D_b.step()
 
 if __name__ == "__main__":
     main()

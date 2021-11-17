@@ -9,9 +9,11 @@ class BasicResBlock(nn.Module):
         super(BasicResBlock, self).__init__()
         self.conv1 = nn.Conv2d(in_chs, out_chs, kernel_size=3, stride=1, padding='same')
         self.bn1 = nn.BatchNorm2d(out_chs)
+        # self.bn1 = nn.Identity()
         self.relu = nn.ReLU(inplace=True)
         self.conv2 = nn.Conv2d(out_chs, out_chs, kernel_size=3, stride=1, padding='same')
         self.bn2 = nn.BatchNorm2d(out_chs)
+        # self.bn2 = nn.Identity()
         self.is_identity = True if in_chs == out_chs else False
     
     def forward(self, x):
@@ -54,7 +56,8 @@ class ResNetEncoder(nn.Module):
                 cur_layers = []
                 print("[MODEL] Stage{} Layer {}: adding pool layer, feature size downscaled by {}"\
                     .format(len(all_layers), idx, 2 ** num_pool))
-                cur_layers.append(nn.MaxPool2d(kernel_size=2, stride=2, padding=0))
+                # cur_layers.append(nn.MaxPool2d(kernel_size=2, stride=2, padding=0))
+                cur_layers.append(nn.Conv2d(last_layer_out, last_layer_out, 2, 2, 0))
 
         print("[MODEL] TOTAL {} stages".format(len(all_layers)))
         self.all_stages = nn.ModuleList(all_layers)
@@ -78,10 +81,10 @@ class ConvBNReLU_Block(nn.Module):
     """
     def __init__(self, in_chs, out_chs):
         super(ConvBNReLU_Block, self).__init__()
-        layers = [nn.Conv2d(in_chs, out_chs, 3, stride=1, padding=1),
-                  nn.BatchNorm2d(out_chs),
-                  nn.ReLU(inplace=True)
-        ]
+        layers = []
+        layers.append(nn.Conv2d(in_chs, out_chs, 3, stride=1, padding=1))
+        layers.append(nn.BatchNorm2d(out_chs))
+        layers.append(nn.LeakyReLU(negative_slope=0.1, inplace=True))
         self.block = nn.Sequential(*layers)
     
     def forward(self, x):
@@ -131,7 +134,8 @@ class DeconvDecoder(nn.Module):
                 else:
                     print("[MODEL] Stage{} Layer {}: adding conv layer {} -> {}"\
                         .format(len(all_layers), idx, last_layer_out, cur_ch))
-                    cur_layers.append(nn.Conv2d(last_layer_out, cur_ch, 3, 1, 1))
+                    # cur_layers.append(nn.Conv2d(last_layer_out, cur_ch, 3, 1, 1))
+                    cur_layers.append(ConvBNReLU_Block(last_layer_out, cur_ch))
                     last_layer_out = cur_ch
             else:
                 # upsample layer
@@ -158,6 +162,7 @@ class DeconvDecoder(nn.Module):
         print(self.all_stages)
         self.n_stage = len(self.all_stages)
 
+
     def forward(self, x, skip_feats):
         # print(self.skip_chs_dic)
         # print(len(skip_feats))
@@ -168,11 +173,6 @@ class DeconvDecoder(nn.Module):
                 # print(idx, cat_id, skip_feats[-cat_id].size(), x.size())
                 x = torch.cat((x, skip_feats[-cat_id]), dim=1)
                 cat_id += 1
-
-            # if skip_feats[idx] is not None:
-                # print('forward using skip ', x.size(), skip_feats[idx].size())
-                # x = torch.cat((x, skip_feats[idx]), dim=1)
-            # print('forward', idx, x.size())
             x = stage(x)
         return x
 

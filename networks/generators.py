@@ -6,7 +6,7 @@ class Symm_ResDeconv_Generator(nn.Module):
     """
     generator using resnet-like encoder and simple deconv decoder
     """
-    def __init__(self, arch_code=[3, 16, 16, 'p', 32, 'p', 64, 64, 'p', 128], skip_connect=[0, 1, 2]):
+    def __init__(self, arch_code=[3, 16, 32, 'p', 64, 'p', 128, 'p', 256, 'p', 512, 512, 512], skip_connect=[3]):
         super(Symm_ResDeconv_Generator, self).__init__()
         self.skip_connect = skip_connect
         stage_out_chs = [int(i.strip().split(' ')[-1]) for i in ' '.join(map(str, arch_code)).split('p')]

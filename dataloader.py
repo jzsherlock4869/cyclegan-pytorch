@@ -12,7 +12,7 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 
 class CycleGANDataset(Dataset):
-    def __init__(self, root_dir, imgA_sub, imgB_sub, postfix_set=["png", "jpg"]):
+    def __init__(self, root_dir, imgA_sub, imgB_sub, postfix_set=["png", "jpg"], img_size=(256, 256)):
         imgA_path = osp.join(root_dir, imgA_sub)
         imgB_path = osp.join(root_dir, imgB_sub)
         imgA_lists = [glob(osp.join(imgA_path, "*." + postfix)) for postfix in postfix_set]
@@ -23,7 +23,7 @@ class CycleGANDataset(Dataset):
         self.imgA_ids, self.imgB_ids = imgA_ids, imgB_ids
         self.lenA, self.lenB = len(self.imgA_ids), len(self.imgB_ids)
         self.transform = A.Compose([
-            A.Resize(256, 256, cv2.INTER_CUBIC, p=1.0),
+            A.Resize(img_size[0], img_size[1], cv2.INTER_CUBIC, p=1.0),
             A.HorizontalFlip(p=0.5),
             A.Normalize(p=1.0)],
             additional_targets={"image_2": 'image'})
@@ -61,15 +61,29 @@ class CycleGANDataset(Dataset):
     def __len__(self):
         return min(self.lenA, self.lenB)
 
-def get_photo2monet_train_dataloader(root_dir="../dataset", batch_size=4):
+def get_photo2monet_train_dataloader(root_dir="../datasets/monet_dataset", batch_size=8):
     imgA_sub, imgB_sub = "photo_jpg", "monet_jpg"
     postfix_set=["jpg"]
     train_dataset = CycleGANDataset(root_dir, imgA_sub, imgB_sub, postfix_set)
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
     return train_dataloader
 
-def get_photo2monet_eval_dataloader(root_dir="../dataset"):
+def get_photo2monet_eval_dataloader(root_dir="../datasets/monet_dataset"):
     imgA_sub, imgB_sub = "photo_jpg", "monet_jpg"
+    postfix_set=["jpg"]
+    eval_dataset = CycleGANDataset(root_dir, imgA_sub, imgB_sub, postfix_set)
+    eval_dataloader = DataLoader(eval_dataset, batch_size=1, shuffle=False)
+    return eval_dataloader
+
+def get_horse2zebra_train_dataloader(root_dir="../datasets/zebra_dataset", batch_size=4):
+    imgA_sub, imgB_sub = "trainA", "trainB"
+    postfix_set=["jpg"]
+    train_dataset = CycleGANDataset(root_dir, imgA_sub, imgB_sub, postfix_set)
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
+    return train_dataloader
+
+def get_horse2zebra_eval_dataloader(root_dir="../datasets/zebra_dataset"):
+    imgA_sub, imgB_sub = "trainA", "trainB"
     postfix_set=["jpg"]
     eval_dataset = CycleGANDataset(root_dir, imgA_sub, imgB_sub, postfix_set)
     eval_dataloader = DataLoader(eval_dataset, batch_size=1, shuffle=False)
@@ -78,7 +92,7 @@ def get_photo2monet_eval_dataloader(root_dir="../dataset"):
 if __name__ == "__main__":
 
     # test dataloader works normally
-    data_path = "../dataset/"
+    data_path = "../datasets/monet_dataset"
     train_dataloader = get_photo2monet_train_dataloader(data_path)
     for idx, i in enumerate(train_dataloader):
         if idx > 5:
