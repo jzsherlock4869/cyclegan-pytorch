@@ -55,8 +55,8 @@ For training on your own datasets (domain A and domain B), write your own datalo
 
 ```python
 def get_your_custom_train_dataloader(root_dir="your_path", 
-                                     												batch_size=8, 
-                                     												img_size=(256, 256)):
+                                    batch_size=8, 
+ 									img_size=(256, 256)):
     imgA_sub, imgB_sub = "subdirnameA", "subdirnameB" # sub directory name to your root_dir
     postfix_set=["jpg"]  # which postfix is your images
     train_dataset = CycleGANDataset(root_dir, imgA_sub, imgB_sub, postfix_set, img_size)
@@ -68,12 +68,18 @@ and then modify the `train_cyclegan.py` line 54-60 to add your dataset (remember
 
 ```python
 if which_dataset == 'horse2zebra':
-    train_dataloader = get_horse2zebra_train_dataloader(dataroot, batch_size=batch_size, img_size=img_size)
+    train_dataloader = get_horse2zebra_train_dataloader(dataroot, 
+                                                        batch_size=batch_size, 
+                                                        img_size=img_size)
 elif which_dataset == 'photo2monet':
-    train_dataloader = get_photo2monet_train_dataloader(dataroot, batch_size=batch_size, img_size=img_size)
+    train_dataloader = get_photo2monet_train_dataloader(dataroot, 
+                                                        batch_size=batch_size, 
+                                                        img_size=img_size)
  # add lines here
  elif which_dataset == 'your_custom_dataset':
-    train_dataloader = get_your_custom_train_dataloader(dataroot, batch_size=batch_size, img_size=img_size)
+    train_dataloader = get_your_custom_train_dataloader(dataroot, 
+                                                        batch_size=batch_size, 
+                                                        img_size=img_size)
 # add lines here
 else:
     raise NotImplementedError(f"Unrecognized dataset type : {which_dataset}")
@@ -95,3 +101,7 @@ A keras version and tutorial with detailed explanations about the theory and pro
 https://machinelearningmastery.com/cyclegan-tutorial-with-keras/
 
 Moreover, this codebase also refered [BasicSR](https://github.com/xinntao/BasicSR) and [UnpairedSR](https://github.com/greatlog/UnpairedSR) for the code architecture and style, and some functions are directly borrowed from them. Appreciations for their great works~
+
+
+
+#### Welcome to star⭐ if this repo helps you :)
