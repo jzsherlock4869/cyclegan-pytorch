@@ -56,7 +56,7 @@ For training on your own datasets (domain A and domain B), write your own datalo
 ```python
 def get_your_custom_train_dataloader(root_dir="your_path", 
                                     batch_size=8, 
- 									img_size=(256, 256)):
+                                    img_size=(256, 256)):
     imgA_sub, imgB_sub = "subdirnameA", "subdirnameB" # sub directory name to your root_dir
     postfix_set=["jpg"]  # which postfix is your images
     train_dataset = CycleGANDataset(root_dir, imgA_sub, imgB_sub, postfix_set, img_size)
