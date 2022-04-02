@@ -1,4 +1,6 @@
-torch==1.9.1
+torch  # make sure to match your own CUDA version
 numpy
+addict
 opencv-python
 albumentations
+lpips  # pip install --user lpips

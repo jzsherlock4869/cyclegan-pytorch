@@ -1,0 +1,107 @@
+#### general settings
+exp_name: ~
+save_dir: ./experiments
+use_tb_logger: false
+model: CycleGANModel
+is_train: true
+dist: false
+gpu_ids: [0]
+
+# dataset settings
+datasets:
+  which_dataset: 'horse2zebra'  # 'horse2zebra', 'photo2monet'
+  dataroot: ../dataset/cyclegan_dataset/zebra_dataset
+  batch_size: 2
+  img_size: [256, 256]
+
+#### network structures
+networks:
+  netG_AB:
+    which_network: EncTransDecNetwork
+    setting:
+      in_nc: 3
+      base_nf: 64
+      num_resblock: 9
+  netG_BA:
+    which_network: EncTransDecNetwork
+    setting:
+      in_nc: 3
+      base_nf: 64
+      num_resblock: 9
+  netD_A:
+    which_network: PatchGANDiscriminator
+    setting:
+      in_nc: 3
+      base_nf: 64
+  netD_B:
+    which_network: PatchGANDiscriminator
+    setting:
+      in_nc: 3
+      base_nf: 64
+
+#### training settings: learning rate scheme, loss
+train:
+  resume_state: ~
+  D_ratio: 1
+  max_grad_norm: 50
+  buffer_size: 16
+  niter: 200000
+  warmup_iter: -1  # no warm up
+
+  losses:
+    adv_A:
+      type: GANLoss
+      gan_type: lsgan
+      real_label_val: 1.0
+      fake_label_val: 0.0
+      weight: !!float 1.0
+    
+    adv_B:
+      type: GANLoss
+      gan_type: lsgan
+      real_label_val: 1.0
+      fake_label_val: 0.0
+      weight: !!float 1.0
+    
+    identity_A:
+      type: L1Loss
+      weight: 0.5
+    
+    identity_B:
+      type: L1Loss
+      weight: 0.5
+
+    cycle_AB:
+      type: L1Loss
+      weight: 10.0
+
+    cycle_BA:
+      type: L1Loss
+      weight: 10.0
+
+  optimizers:
+    default:
+      type: Adam
+      lr: !!float 2e-4
+    netG_AB: ~
+    netG_BA: ~
+    netD_A: ~
+    netD_B: ~
+
+  schedulers:
+    default:
+      type: MultiStepRestartLR
+      milestones: [50000, 100000, 150000]
+      gamma: 0.5
+    netG_AB: ~
+    netG_BA: ~
+    netD_A: ~
+    netD_B: ~
+
+eval:
+  eval_interval: 1000
+  save_model_interval: 5000
+
+logger:
+  print_freq: 100
+  save_checkpoint_freq: !!float 5e3
