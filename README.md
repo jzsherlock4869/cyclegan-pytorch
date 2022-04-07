@@ -51,7 +51,7 @@ python train_cyclegan.py --opt configs/000_base_cyclegan_horse2zebra.yml
 
 Dataset class for "**horse2zebra**" and "**photo2monet**" are already implemented in this repo. 
 
-For training on your own datasets (domain A and domain B), write your own dataloader as ` get_photo2monet_train_dataloader` and `get_horse2zebra_train_dataloader` in `data/sample_dataloader.py`
+For training on your own datasets (domain A and domain B), write your own dataloader as  ` get_photo2monet_train_dataloader` and `get_horse2zebra_train_dataloader` in  `data/sample_dataloader.py`
 
 ```python
 def get_your_custom_train_dataloader(root_dir="your_path", 
